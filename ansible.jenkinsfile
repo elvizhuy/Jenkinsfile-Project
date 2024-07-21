@@ -12,6 +12,7 @@ pipeline {
         GIT_CONFIG = 'git config --global --add safe.directory'
         GIT_PULL = 'git pull'
         GIT_CHECKOUT = 'git checkout'
+        GIT_BRANCH = 'git branch'
     }
 
     parameters {
@@ -31,10 +32,11 @@ pipeline {
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
                         ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ${GIT_CONFIG} ${ANSIBLE_DIR} && ${GIT_PULL} && ${GIT_CHECKOUT} ${params.project} && ${GIT_PULL}"
+                        echo "............... On Branch : ${GIT_BRANCH} ..................."
                         """
                     }
                     
-                    echo "------------- DONE -------------"
+                    echo "------------------- DONE ---------------------"
                 }
             }
         }
