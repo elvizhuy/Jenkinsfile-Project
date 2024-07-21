@@ -33,7 +33,7 @@ pipeline {
                         sh """
                         ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
                         cd ${ANSIBLE_DIR} && 
-                        ${GIT_CONFIG} && 
+                        ${GIT_CONFIG} ${ANSIBLE_DIR} && 
                         ${GIT_PULL} && 
                         ${GIT_CHECKOUT} ${params.project} && 
                         ${GIT_PULL} &&
