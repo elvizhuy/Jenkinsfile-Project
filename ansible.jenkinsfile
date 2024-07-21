@@ -37,7 +37,7 @@ pipeline {
                         ${GIT_PULL} && 
                         ${GIT_CHECKOUT} ${params.project} && 
                         ${GIT_PULL} &&
-                        echo '............... On Branch : ${GIT_BRANCH} ...................' &&
+                        // echo '............... On Branch : ${GIT_BRANCH} ...................' &&
                         ${GIT_BRANCH}
                         "
                         """
