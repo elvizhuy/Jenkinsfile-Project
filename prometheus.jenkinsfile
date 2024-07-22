@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+
+    environment {
+        def username = "isofh"
+        def HuyGithubDir = "Prometheus-Grafana"
+        def gitrepo = "https://github.com/elvizhuy/${HuyGithubDir}.git"
+    }
+
+    parameters {
+        choice(choices: ["Prometheus-Huy","Production-Prometheus","Production-Prometheus-Container"], description: 'Choose IP where to build', name: 'DeploymentIP')
+    }
+
+    stages {
+        stage('Build Prometheus') {
+              when { expression { params.DeploymentIP }}
+              steps {
+                    script {
+                        def HuyPrometheus = '10.0.0.235'
+                        def ProductionServer = '10.0.0.13'
+                        def ProductionServerContainer = '10.0.0.14'
+                        if (params.DeploymentIP == "Prometheus-Huy") {
+                            sh """ssh ${username}@${HuyPrometheus} 'cd /home/isofh/${HuyGithubDir} && sudo git checkout servers && sudo git pull && docker container restart \$(docker container ls -aq --filter name=system)'"""
+                            // echo "-------- SSH to server ---------"
+                            // sh """ssh ${username}@${HuyPrometheus} 'sudo rm -rf ${HuyGithubDir} && git clone ${gitrepo}'"""
+                            // echo "----------- End ------------"
+
+                            // echo "-------- SSH to server ---------"
+                            // sh """ssh ${username}@${HuyPrometheus} 'cd /home/isofh/${HuyGithubDir} && bash docker-script.sh'"""
+                            // sh """ssh ${username}@${HuyPrometheus} 'cd /home/isofh/${HuyGithubDir}/prometheus && sudo rm -rf rules'"""
+                            // echo "----------- End ------------"
+
+                        }else if (params.DeploymentIP == "Production-Prometheus") {
+                            sh "ssh ${username}@${ProductionServer} 'cd /home/isofh/Docker-compose-prometheus && git checkout production && sudo git pull && sudo docker restart sys-isofh-prometheus sys-isofh-alertmanager '"
+                        } else if (params.DeploymentIP == "Production-Prometheus-Container") {
+                            sh "ssh ${username}@${ProductionServerContainer} 'cd /home/isofh/Docker-compose-prometheus && git checkout production-container && sudo git pull && sudo docker restart sys-isofh-vipbot-container sys-isofh-prometheus sys-isofh-alertmanager '"
+                        }
+                    }
+
+              }
+        }
+    }
+}
+

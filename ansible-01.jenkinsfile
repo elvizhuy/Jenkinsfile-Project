@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+
+    environment {
+        def username = "isofh"
+        def HuyGithubDir = "Ansible-Inventory-Playbook"
+        def Inventory = "hosts.yml"
+        def createDirectoryPlaybook = "create-directory.yml"
+        def changePassworPlaybook = "change-password.yml"
+        def deployWebAppPlaybook = "deploy-webapp.yml"
+        def installMysqlPlaybook = "install-mysql.yml"
+        def installPostgresqlPlaybook = "install-postgresql.yml"
+        def gitrepo = "https://github.com/elvizhuy/${HuyGithubDir}.git"
+        def workspacePath = "/var/lib/jenkins/workspace"
+    }
+
+    parameters {
+        choice(choices: ["create directory","change password","deploy webapp","install mysql","install postgresql"], description: 'Choose Playbook To Run', name: 'choosePlaybook')
+    }
+
+    stages {
+        stage ('Clone or Pull Project') {
+            steps {
+                 script {
+                    echo "------------ CLONE OR PULL CODE ------------"
+                    def workspace = pwd() 
+                    def gitDir = "${workspace}/${HuyGithubDir}/.git"
+                    
+                    if (fileExists(gitDir)) {
+                        echo "Git repository exists. Pulling changes..."
+                        echo "------------ PULL CODE ------------"
+                        sh "cd ${workspace}/${HuyGithubDir} && git pull"
+                        sh "ls -la"
+                    } else {
+                        echo "------------ CLONE PROJECT ------------"
+                        echo "Git repository does not exist. Cloning..."
+                        sh "git clone ${gitrepo}"
+                        sh "ls -la"
+                    }
+                }
+            }
+        }
+
+        stage ('Run Playbook') {
+              when { expression { params.choosePlaybook }}
+              steps {
+                    script {
+                        echo "------------ RUN PLAYBOOK ------------"
+                        if (params.choosePlaybook == "create directory") {
+                            sh "cd ${HuyGithubDir} && ansible-playbook -i ${Inventory} ${createDirectoryPlaybook}"
+                        } 
+                        else if (params.choosePlaybook == "change password"){
+                            sh "cd ${HuyGithubDir} && ansible-playbook -i ${Inventory} ${changePassworPlaybook}"
+                        }
+                         else if (params.choosePlaybook == "deploy webapp"){
+                            sh "cd ${HuyGithubDir} && ansible-playbook -i ${Inventory} ${deployWebAppPlaybook}"
+                        }
+                        else if (params.choosePlaybook == "install mysql"){
+                            sh "cd ${HuyGithubDir} && ansible-playbook -i ${Inventory} ${installMysqlPlaybook}"
+                        }
+                        else if (params.choosePlaybook == "install postgresql"){
+                            sh "cd ${HuyGithubDir} && ansible-playbook -i ${Inventory} ${installPostgresqlPlaybook}"
+                        }
+                        echo "------------ FINISH ------------"
+                    }
+              }
+        }
+
+        stage ('Clean Workspace') {
+            steps {
+                 script {
+                    // sh "rm -rf ${workspacePath}/${HuyGithubDir}"
+                    cleanWs()
+                }
+            }
+        }
+    }
+}
+
+
+

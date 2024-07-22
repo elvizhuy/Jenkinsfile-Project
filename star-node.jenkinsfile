@@ -1,0 +1,176 @@
+pipeline {
+    agent any
+
+    environment {
+        def GIT_REPO_URL = "${params.URL}"
+        def GIT_DIR = ''
+        def GIT_BRANCH = "${params.Branch}"
+        def username = "huynn"
+        def serverIP = ''
+        def path = ''
+        def serverPath = ''
+        def tag = ''
+        def image = ''
+        def taggedImage = ''
+        def imageToDelete = sh(script: "docker images -q --filter=reference='${DOCKERHUB_USERNAME}/star-security-be-nodejs-*'", returnStdout: true).trim()
+        def port = '8080:8080'
+        def DOCKERHUB_USERNAME = "nguyenngochuy"
+        def DOCKERHUB_PASSWORD = "Huynn@9890#!"
+        def scriptFolder = "/home/huynn/scripts"
+    }
+
+    parameters {
+        choice(choices: ["Production","Stagging"], description: 'Choose environment', name: 'Environment')
+        choice(choices: ["main","dev"], description: 'Choose branch', name: 'Branch')
+        choice(choices: ["v14.0","v16.0","v18.0"], description: 'Choose node version', name: 'Node_Version')
+        string(defaultValue: "https://github.com/thanhlam212/Star-Security-2.git", description: 'Whats the github URL?', name: 'URL')
+    }
+
+    stages {
+        stage('Get Git Repository Info') {
+            steps {
+                script {
+                    echo "---------------------------------------------"
+                    GIT_DIR = GIT_REPO_URL =~ /.*\/(.+?)\.git/
+                    if (GIT_DIR) {
+                        GIT_DIR = GIT_DIR[0][1]
+                        echo "Git Repository URL: ${GIT_REPO_URL}"
+                        echo "Git Branch: ${GIT_BRANCH}"
+                        echo "Git Repository Directory: ${GIT_DIR}/be/nodejs"
+                        echo "${WORKSPACE}"
+                    } else {
+                        error "Can not get directory's name from URL."
+                    }
+                    echo "---------------------------------------------"
+                }
+            }
+        }
+        
+        stage ('Clone or Pull Project') {
+            steps { 
+                 script {
+                    echo "------------ CLONE OR PULL CODE ------------"
+                    def gitDir = "${WORKSPACE}/${GIT_DIR}/be/nodejs"
+                    sh "rm -rf ${WORKSPACE}/${GIT_DIR}"
+                    if (fileExists(gitDir)) {
+                        echo "Git repository exists. Pulling changes..."
+                        echo "------------ PULL CODE ------------"
+                        sh "cd ${gitDir} && git pull"
+                        sh "ls -la"
+                    } else {
+                        echo "------------ CLONE PROJECT ------------"
+                        echo "Git repository does not exist. Cloning..."
+                        sh "rm -rf Star-Security-2 && git clone ${GIT_REPO_URL} && cd ${WORKSPACE}/${GIT_DIR}/be/nodejs/ && git branch && git checkout ${params.Branch} && git pull"
+                        sh "ls -la"
+                    }
+                }
+            }
+        }
+
+        stage('Build Code') {
+            when { expression { params.Environment }}
+            steps {
+                script {
+                    // echo "----------------- Copy and Set env --------------------"
+                    // sh "cd ${WORKSPACE}/${GIT_DIR}/be/nodejs/ && id && chmod -R 777 ${WORKSPACE}/${GIT_DIR}/be/nodejs/"
+                    // sh "cd ${WORKSPACE}/${GIT_DIR}/be/nodejs/ && ls -la && cp .env.example .env && cp /scripts/set-env-nodejs.sh . && ./set-env-nodejs.sh && cat .env"
+                    // echo "------------------- Done !!! ----------------------"
+                    if (params.Environment == 'Production' || (params.Environment == 'Stagging' && params.Branch == 'dev')) {
+                            if (params.Environment == 'Production') {
+                                tag = 'production'
+                            }else if (params.Environment == 'Stagging'){
+                                tag = 'stagging'
+                            }
+                            
+                            def dockerImageName = "star-security-be-nodejs-${tag}"
+                            def dockerSaveFile = "star-security-be-nodejs-${tag}.tar"
+                        
+                            def fileExists = fileExists("${WORKSPACE}/${dockerSaveFile}")
+                            
+                            if (fileExists) {
+                                sh "rm ${WORKSPACE}/${dockerSaveFile} ${WORKSPACE}/${dockerImageName}"
+                            } else {
+                                echo "File ${dockerSaveFile} not existed in directory."
+                            }
+                            
+                            def version = "${params.Node_Version}"
+                            
+                            taggedImage = "${dockerImageName}:${version}"
+                            
+                            // Build image
+                            sh "cd ${WORKSPACE}/${GIT_DIR}/be/nodejs && docker build -t ${DOCKERHUB_USERNAME}/${taggedImage} ."
+                            sh "docker save -o ${dockerSaveFile} ${DOCKERHUB_USERNAME}/${taggedImage}"
+                            // Login Docker Hub , Push image to Docker Hub
+                            // sh "echo ${DOCKERHUB_PASSWORD} | docker login --username ${DOCKERHUB_USERNAME} --password-stdin && docker push ${DOCKERHUB_USERNAME}/${taggedImage}"
+                            // echo ".................. IMAGE PUSHED DONE!...................."
+                    }
+                }
+            }
+        }
+        
+        stage('Copy to server - Remove All Local Docker Images') {
+            steps {
+                script {
+                    
+                    if (params.Environment == "Production") {
+                            tag = 'production'
+                            image = "star-security-be-nodejs-${tag}.tar"
+                            serverIP = '18.139.82.65'
+                            serverPath = '/home/huynn/'
+                            path = '/home/huynn/star-security-production/nodejs/files/public'
+                            echo "Copy to production server : ${serverIP}"
+                            sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-be-nodejs-${tag}.tar"""
+                            echo '----------------------- COPY DONE ! ----------------------------'
+                    }
+                    else {
+                            tag = 'stagging'
+                            image = "star-security-be-nodejs-${tag}.tar"
+                            serverIP = '13.214.109.174'
+                            serverPath = '/home/huynn/'
+                            path = '/home/huynn/star-security-stable/nodejs/files/public'
+                            echo "Copy to stagging server: ${serverIP}"
+                            sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-be-nodejs-${tag}.tar"""
+                            echo '----------------------- COPY DONE ! ----------------------------'
+                    }
+                    
+                    
+                    sh "docker images -q --filter=reference='nguyenngochuy/star-security-be-nodejs-*' | xargs docker rmi"
+                    sh """docker images --filter 'dangling=true' -q | xargs -I {} docker rmi {}"""
+                    echo "...................  REMOVED ALL LOCAL IMAGES  ...................."
+                }
+            }
+        }
+
+        stage('Stop and Remove Docker Container') {
+            steps {
+                script {
+                    if (params.Environment == "Production" || params.Environment == "Stagging") {
+                        sh """\
+                        ssh ${username}@${serverIP} '
+                            echo "------------------------IN ${username}@${serverIP} ------------------------------"
+                            if docker inspect star-security-be-nodejs-${tag} &> /dev/null; then
+                              docker stop star-security-be-nodejs-${tag} && docker rm star-security-be-nodejs-${tag} && docker rmi ${DOCKERHUB_USERNAME}/${taggedImage}
+                            else
+                              echo "Container star-security-be-nodejs-${tag} not found. Skipping removal."
+                            fi
+                            set -e
+                            set -x
+                            docker load -i star-security-be-nodejs-${tag}.tar &&
+                            docker run -d --name star-security-be-nodejs-${tag} -p ${port} ${DOCKERHUB_USERNAME}/${taggedImage} &&
+                            rm star-security-be-nodejs-*
+                          '
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Clean Workspace') {
+            steps {
+                script {
+                    deleteDir()
+                }
+            }
+        }
+    }
+}

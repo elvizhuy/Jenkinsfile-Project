@@ -1,0 +1,184 @@
+pipeline {
+    agent any
+
+    environment {
+        def GIT_REPO_URL = "${params.URL}"
+        def GIT_DIR = ''
+        def GIT_BRANCH = "${params.Branch}"
+        def username = "huynn"
+        def serverIP = ''
+        def path = ''
+        def serverPath = ''
+        def tag = ''
+        def image = ''
+        def taggedImage = ''
+        def imageToDelete = sh(script: "docker images -q --filter=reference='${DOCKERHUB_USERNAME}/star-security-be-asp-*'", returnStdout: true).trim()
+        def port = '5000:8080'
+        def DOCKERHUB_USERNAME = "nguyenngochuy"
+        def DOCKERHUB_PASSWORD = "Huynn@9890#!"
+    }
+
+    parameters {
+        choice(choices: ["Production","Stagging"], description: 'Choose environment', name: 'Environment')
+        choice(choices: ["main","dev"], description: 'Choose branch', name: 'Branch')
+        choice(choices: ["v8.0"], description: 'Choose asp.net sdk version', name: 'Dotnet_SDK')
+        string(defaultValue: "https://github.com/thanhlam212/Star-Security-2.git", description: 'Whats the github URL?', name: 'URL')
+    }
+
+    stages {
+        stage('Get Git Repository Info') {
+            steps {
+                script {
+                    echo "---------------------------------------------"
+                    GIT_DIR = GIT_REPO_URL =~ /.*\/(.+?)\.git/
+                    if (GIT_DIR) {
+                        GIT_DIR = GIT_DIR[0][1]
+                        echo "Git Repository URL: ${GIT_REPO_URL}"
+                        echo "Git Branch: ${GIT_BRANCH}"
+                        echo "Git Repository Directory: ${GIT_DIR}/be/dotnet/StarSecurity"
+                        echo "${WORKSPACE}"
+                    } else {
+                        error "Can not get directory's name from URL."
+                    }
+                    echo "---------------------------------------------"
+                }
+            }
+        }
+        
+        stage ('Clone or Pull Project') {
+            steps { 
+                 script {
+                    echo "------------ CLONE OR PULL CODE ------------"
+                    def gitDir = "${WORKSPACE}/${GIT_DIR}/be/dotnet/StarSecurity"
+                    
+                    if (fileExists(gitDir)) {
+                        echo "Git repository exists. Pulling changes..."
+                        echo "------------ PULL CODE ------------"
+                        sh "cd ${gitDir} && git pull"
+                        sh "ls -la"
+                    } else {
+                        echo "------------ CLONE PROJECT ------------"
+                        echo "Git repository does not exist. Cloning..."
+                        sh "git clone ${GIT_REPO_URL}"
+                        sh "ls -la"
+                    }
+                }
+            }
+        }
+
+        stage('Build Code') {
+            when { expression { params.Environment }}
+            steps {
+                script {
+                    if (params.Environment == 'Production' || (params.Environment == 'Stagging' && params.Branch == 'dev')) {
+                            if (params.Environment == 'Production') {
+                                tag = 'production'
+                            }else if (params.Environment == 'Stagging'){
+                                tag = 'stagging'
+                            }
+                            
+                            def dockerImageName = "star-security-be-asp-${tag}"
+                            def dockerSaveFile = "star-security-be-asp-${tag}.tar"
+                        
+                            // Kiểm tra xem file đã tồn tại hay chưa
+                            def fileExists = fileExists("${WORKSPACE}/${dockerSaveFile}")
+                            
+                            if (fileExists) {
+                                // Xóa file nếu tồn tại
+                                sh "rm ${WORKSPACE}/${dockerSaveFile} ${WORKSPACE}/${dockerImageName}"
+                            } else {
+                                echo "File ${dockerSaveFile} not existed in directory."
+                            }
+                            
+                            def version = "${params.Dotnet_SDK}"
+                            
+                            // Assign tag to image
+                            taggedImage = "${dockerImageName}:${version}"
+                            
+                            // Build image
+                            sh "cd ${WORKSPACE}/${GIT_DIR}/be/dotnet/StarSecurity && git checkout ${params.Environment == 'Production' ? 'main' : 'dev'} && git pull && docker build -t ${DOCKERHUB_USERNAME}/${taggedImage} ."
+                            sh "docker save -o ${dockerSaveFile} ${DOCKERHUB_USERNAME}/${taggedImage}"
+                            // Login Docker Hub , Push image to Docker Hub
+                            // sh "echo ${DOCKERHUB_PASSWORD} | docker login --username ${DOCKERHUB_USERNAME} --password-stdin && docker push ${DOCKERHUB_USERNAME}/${taggedImage}"
+                            // echo ".................. IMAGE PUSHED DONE!...................."
+                    }
+                }
+            }
+        }
+        
+        stage('Copy to server - Remove All Local Docker Images') {
+            steps {
+                script {
+                    
+                    if (params.Environment == "Production") {
+                            tag = 'production'
+                            image = "star-security-be-asp-${tag}.tar"
+                            serverIP = '18.139.82.65'
+                            serverPath = '/home/huynn/'
+                            path = '/home/huynn/star-security-production/aspnet/files/public'
+                            echo "Copy to production server : ${serverIP}"
+                            sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-be-asp-${tag}.tar"""
+                            echo '----------------------- COPY DONE ! ----------------------------'
+                    }
+                    else {
+                            tag = 'stagging'
+                            image = "star-security-be-asp-${tag}.tar"
+                            serverIP = '13.214.109.174'
+                            serverPath = '/home/huynn/'
+                            path = '/home/huynn/star-security-stable/aspnet/files/public'
+                            echo "Copy to stagging server: ${serverIP}"
+                            sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-be-asp-${tag}.tar"""
+                            echo '----------------------- COPY DONE ! ----------------------------'
+                    }
+                    
+                    
+                    sh "docker images -q --filter=reference='nguyenngochuy/star-security-be-asp-*' | xargs docker rmi"
+                    sh """docker images --filter 'dangling=true' -q | xargs -I {} docker rmi {}"""
+                    echo "...................  REMOVED ALL LOCAL IMAGES  ...................."
+                }
+            }
+        }
+
+        stage('Stop and Remove Docker Container') {
+            steps {
+                script {
+                    if (params.Environment == "Production" || params.Environment == "Stagging") {
+                        sh """
+                        ssh ${username}@${serverIP} '
+                            echo "------------------------IN ${username}@${serverIP} ------------------------------"
+                            if docker inspect star-security-be-asp-${tag} &> /dev/null; then
+                                docker stop star-security-be-asp-${tag} && docker rm star-security-be-asp-${tag} && docker rmi ${DOCKERHUB_USERNAME}/${taggedImage}
+                            else
+                                echo "Container star-security-be-asp-${tag} not found. Skipping removal."
+                            fi
+                            set -e
+                            set -x
+                            docker load -i star-security-be-asp-${tag}.tar &&
+                            docker run -d --name star-security-be-asp-${tag} -p ${port} ${DOCKERHUB_USERNAME}/${taggedImage} &&
+                            rm star-security-be-asp*
+                        '
+                        """
+                        // sh """
+                        //     find /home/huynn -type f -name 'star-security-be-asp*' -exec rm -f {} \\;
+                        // """
+
+                        // docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} &&
+                        // docker pull ${DOCKERHUB_USERNAME}/${taggedImage} &&
+                        // dir("/home/huynn/scripts/") {
+                        //     pwd()
+                        //     sh "./remove_container.sh && docker run -d --name star-security-fe-${tag} -p ${port} -v ${path}:/urs/src/assets ${DOCKERHUB_USERNAME}/${taggedImage}"
+                        // }
+                    }
+                }
+            }
+        }
+        
+        stage('Clean Workspace') {
+            steps {
+                script {
+                    deleteDir()
+                }
+            }
+        }
+    }
+}

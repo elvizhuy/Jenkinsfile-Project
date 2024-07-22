@@ -1,0 +1,94 @@
+pipeline {
+    agent any
+
+    environment {
+        def workspacePath = "/var/lib/jenkins/workspace"
+        def GithubDir = "Ansible-Inventory-Playbook"
+        def setupCDConfigNginx= "nginx/nginx-cd-config.yaml"
+        def Inventory = "hosts.yml"
+        def createDirectoryPlaybook = "create-directory.yml"
+        def changePassworPlaybook = "change-password.yml"
+        def deployWebAppPlaybook = "deploy-webapp.yml"
+        def installMysqlPlaybook = "install-mysql.yml"
+        def installPostgresqlPlaybook = "install-postgresql.yml"
+        def installNginxServicePlaybook = "install-nginx.yml"
+        def gitrepo = "https://github.com/elvizhuy/${GithubDir}.git"
+        def gitrepoTuan="https://github.com/darktuan1993/${GithubDir}.git"
+    }
+
+    parameters {
+        choice(choices: ["DarkTuan","elvizhuy"], description: 'Choose Playbook', name: 'ChooseRepo')
+        choice(choices: ["create directory","change password","deploy webapp","install mysql","install postgresql","install nginx service","setup new server","check connection","open port firewall","block IP","Setup kubernetes","Triển khai cấu hình nginx"], description: 'Choose Playbook To Run', name: 'choosePlaybook')
+    }
+
+    stages {
+        stage ('Clone or Pull Project') {
+            steps {
+                 script {
+                    // sh 'sudo -u root -p Huynn@9890#!'
+                    // sh 'sudo -i'
+                    echo "------------ CLONE OR PULL CODE ------------"
+                    def workspace = pwd() 
+                    def gitDir = "${workspace}/${GithubDir}/.git"
+                    
+
+
+                    if (fileExists(gitDir)) {
+                        echo "Git repository exists. Pulling changes..."
+                        echo "------------ PULL CODE ------------"
+                        sh "cd ${workspace}/${GithubDir} && git config --global --add safe.directory /var/lib/jenkins/workspace/Ansible-Playbook-Execution/Ansible-Inventory-Playbook && git pull"
+                    } else {
+                        echo "------------ CLONE PROJECT ------------"
+                        echo "Git repository does not exist. Cloning..."
+
+                                if (params.ChooseRepo == "DarkTuan"){
+                                        echo "Tuấn"
+                                        sh "git clone ${gitrepoTuan}"
+                          
+                                }else{
+                                        echo "Huy"
+                                        sh "git clone ${gitrepo}"
+                                      
+                                }
+
+
+                       
+                    }
+                }
+            }
+        }
+
+        stage ('Run Playbook') {
+              when { expression { params.choosePlaybook }}
+              steps {
+                    script {
+                        echo "------------ RUN PLAYBOOK ------------"
+                        sh "pwd"
+                        if (params.choosePlaybook == "Triển khai cấu hình nginx") {
+                            echo "Triển khai cấu hình nginx"
+                           sh "cd ${GithubDir} && ls -la" 
+                           sh "cd ${GithubDir} && ansible-playbook -i ${Inventory} ${setupCDConfigNginx} --limit primary"
+                        }else{
+                               echo "Không triển khai"
+                        } 
+                        // else if (params.choosePlaybook == "change password"){
+                        //     // sh "cd ${GithubDir} && ansible-playbook -i ${Inventory} ${changePassworPlaybook}"
+                        // }
+                        echo "------------ FINISH ------------"
+                    }
+              }
+        }
+
+        stage ('Clean Workspace') {
+            steps {
+                 script {
+                    // sh "rm -rf ${workspacePath}/${GithubDir}"
+                    cleanWs()
+                }
+            }
+        }
+    }
+}
+
+
+

@@ -1,0 +1,200 @@
+pipeline {
+    agent any
+
+    environment {
+        def GIT_REPO_URL = "${params.URL}"
+        def GIT_DIR = ''
+        def GIT_BRANCH = "${params.Branch}"
+        def username = "huynn"
+        def serverIP = ''
+        def path = ''
+        def serverPath = ''
+        def tag = ''
+        def image = ''
+        def taggedImage = ''
+        def imageToDelete = sh(script: "docker images -q --filter=reference='${DOCKERHUB_USERNAME}/star-security-fe-*'", returnStdout: true).trim()
+        def port = '4200:4200'
+        def DOCKERHUB_USERNAME = "nguyenngochuy"
+        def DOCKERHUB_PASSWORD = "Huynn@9890#!"
+    }
+
+    parameters {
+        choice(choices: ["Production","Stagging"], description: 'Choose environment', name: 'Environment')
+        choice(choices: ["main","dev","test","hotfix"], description: 'Choose branch', name: 'Branch')
+        choice(choices: ["18.17","16"], description: 'Choose node version', name: 'Node')
+        string(defaultValue: "https://github.com/thanhlam212/Star-Security-2.git", description: 'Whats the github URL?', name: 'URL')
+    }
+
+    stages {
+        stage('Get Git Repository Info') {
+            steps {
+                script {
+                    echo "---------------------------------------------"
+                    // GIT_DIR = sh(script: 'echo ${GIT_REPO_URL} | awk -F\'/\' \'{print $(NF-1)}\' | cut -d\'.\' -f1', returnStdout: true).trim()
+                    GIT_DIR = GIT_REPO_URL =~ /.*\/(.+?)\.git/
+                    // GIT_DIR = gitRepoUrl.tokenize('/').last().replace('.git', '')
+                    if (GIT_DIR) {
+                        GIT_DIR = GIT_DIR[0][1]
+                        echo "Git Repository URL: ${GIT_REPO_URL}"
+                        echo "Git Branch: ${GIT_BRANCH}"
+                        echo "Git Repository Directory: ${GIT_DIR}/fe/Star-Security-client"
+                        echo "${WORKSPACE}"
+                    } else {
+                        error "Can not get directory's name from URL."
+                    }
+                    echo "---------------------------------------------"
+                }
+            }
+        }
+        
+        stage ('Clone or Pull Project') {
+            steps { 
+                 script {
+                    echo "------------ CLONE OR PULL CODE ------------"
+                    def gitDir = "${WORKSPACE}/${GIT_DIR}/fe/Star-Security-client"
+                    
+                    if (fileExists(gitDir)) {
+                        echo "Git repository exists. Pulling changes..."
+                        echo "------------ PULL CODE ------------"
+                        sh "cd ${gitDir} && git pull"
+                        sh "ls -la"
+                    } else {
+                        echo "------------ CLONE PROJECT ------------"
+                        echo "Git repository does not exist. Cloning..."
+                        sh "rm -rf Star-Security-2 && git clone ${GIT_REPO_URL}"
+                        sh "ls -la"
+                    }
+                }
+            }
+        }
+
+        stage('Build Code') {
+            when { expression { params.Environment }}
+            steps {
+                script {
+                    if (params.Environment == 'Production' || (params.Environment == 'Stagging' && params.Branch == 'dev')) {
+                            if (params.Environment == 'Production') {
+                                tag = 'production'
+                            }else if (params.Environment == 'Stagging'){
+                                tag = 'stagging'
+                            }
+                            
+                            def dockerImageName = "star-security-fe-${tag}"
+                            def dockerSaveFile = "star-security-fe-${tag}"
+                        
+                            // Kiểm tra xem file đã tồn tại hay chưa
+                            def fileExists = fileExists("${WORKSPACE}/${dockerSaveFile}")
+                            
+                            if (fileExists) {
+                                // Xóa file nếu tồn tại
+                                sh "rm ${WORKSPACE}/${dockerSaveFile} ${WORKSPACE}/${dockerImageName}"
+                            } else {
+                                echo "File ${dockerSaveFile} not existed in directory."
+                            }
+                            
+                            // sh "cd ${WORKSPACE}/${GIT_DIR} && git checkout ${params.Environment == 'Production' ? 'main' : 'dev'} && git pull && docker build -t ${dockerImageName} ."
+                            // sh "docker save -o ${dockerSaveFile} ${dockerImageName}"
+                            // Get version from params
+                            def version = "${params.Node}"
+                            
+                            // Assign tag to image
+                            taggedImage = "${dockerImageName}:${version}"
+                            
+                            // Build image
+                            sh "cd ${WORKSPACE}/${GIT_DIR}/fe/Star-Security-client && git checkout ${params.Environment == 'Production' ? 'main' : 'dev'} && git pull && docker build -t ${DOCKERHUB_USERNAME}/${taggedImage} ."
+                            
+                            // Login Docker Hub , Push image to Docker Hub
+                            sh "echo ${DOCKERHUB_PASSWORD} | docker login --username ${DOCKERHUB_USERNAME} --password-stdin && docker push ${DOCKERHUB_USERNAME}/${taggedImage}"
+                            echo ".................. IMAGE PUSHED DONE!...................."
+                    }
+                }
+            }
+        }
+        
+        stage('Remove All Local Docker Images') {
+            steps {
+                script {
+                    // Find and remove all local Docker images with the specified name pattern
+                    sh "docker images -q --filter=reference='nguyenngochuy/star-security-fe-*' | xargs docker rmi"
+                    sh """docker images --filter 'dangling=true' -q | xargs -I {} docker rmi {}"""
+                    // sh """docker images --filter=reference='nguyenngochuy/star-security-fe-*' --format "{{.ID}}" | xargs -I {} docker rmi {}"""
+                    echo "...................  REMOVED ALL LOCAL IMAGES  ...................."
+                }
+            }
+        }
+
+        stage('Stop and Remove Docker Container') {
+            steps {
+                script {
+                    if (params.Environment == "Production" || params.Environment == "Stagging") {
+                        
+                        if (params.Environment == "Production") {
+                            tag = 'production'
+                            image = "star-security-fe-${tag}.tar"
+                            // serverIP = '52.211.79.18'
+                            serverIP = '18.139.82.65'
+                            serverPath = '/home/huynn/'
+                            // path = '/home/huynn/star-security-production/files/public'
+                            // echo "Copy to production server : ${serverIP}"
+                            // sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-fe-${tag}.tar"""
+                            // echo '----------------------- COPY DONE ! ----------------------------'
+                        }
+                        else {
+                            tag = 'stagging'
+                            image = "star-security-fe-${tag}.tar"
+                            serverIP = '13.214.109.174'
+                            serverPath = '/home/huynn/'
+                            // path = '/home/huynn/star-security-stable/files/public'
+                            // echo "Copy to stagging server: ${serverIP}"
+                            // sh """scp ${image} ${username}@${serverIP}:${serverPath} && rm star-security-fe-${tag}.tar"""
+                            // echo '----------------------- COPY DONE ! ----------------------------'
+                        }
+                       
+
+                        sh """\
+                        ssh ${username}@${serverIP} '
+                            echo "------------------------IN ${username}@${serverIP} ------------------------------"
+                            if docker inspect star-security-fe-${tag} &> /dev/null; then
+                              docker stop star-security-fe-${tag} && docker rm star-security-fe-${tag} && docker rmi ${DOCKERHUB_USERNAME}/${taggedImage}
+                            else
+                              echo "Container star-security-fe-${tag} not found. Skipping removal."
+                            fi
+                            set -e
+                            set -x
+                            docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} &&
+                            docker pull ${DOCKERHUB_USERNAME}/${taggedImage} &&
+                            docker run -d --name star-security-fe-${tag} -p ${port} ${DOCKERHUB_USERNAME}/${taggedImage}
+                          '
+                        """
+                        // def runningContainers = sh(script: 'docker ps --format "{{.Names}}"', returnStdout: true).trim().split('\n')
+                        // for (containerInfo in runningContainers) {
+                        //     def containerId = containerInfo.tokenize()[0]
+                        //     def containerName = containerInfo.tokenize()[1]
+                        //     if (containerName != null) {
+                        //         if (containerName.contains('star-security-fe-${tag}')) {
+                        //             echo "Stopping and removing container: ${containerName}"
+                        //             // sh "docker stop ${containerId} && docker rm ${containerId}"
+                        //             sh ""
+                        //             echo "--------------- Deleted Container : ${containerName} --------------------"
+                        //         }
+                        //     }
+                        // }
+                        
+                        // dir("/home/huynn/scripts/") {
+                        //     pwd()
+                        //     sh "./remove_container.sh && docker run -d --name star-security-fe-${tag} -p ${port} -v ${path}:/urs/src/assets ${DOCKERHUB_USERNAME}/${taggedImage}"
+                        // }
+                    }
+                }
+            }
+        }
+        
+        stage('Clean Workspace') {
+            steps {
+                script {
+                    deleteDir()
+                }
+            }
+        }
+    }
+}
