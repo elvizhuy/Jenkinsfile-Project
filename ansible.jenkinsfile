@@ -37,8 +37,9 @@ pipeline {
                         ${GIT_PULL} && 
                         ${GIT_CHECKOUT} ${params.project} && 
                         ${GIT_PULL} &&
-                        echo '............... Show Git Branch ...................' &&
-                        ${GIT_BRANCH}
+                        echo '.........Show Git Branch ...........' &&
+                        ${GIT_BRANCH} &&
+                        echo '....................................'
                         "
                         """
                     }
