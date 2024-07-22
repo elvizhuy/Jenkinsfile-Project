@@ -65,7 +65,10 @@ pipeline {
                     // ansiColor('xterm') {
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
-                            ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} && ${GIT_CHECKOUT} ${params.project} && ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} action=${params.action} role=${params.role}'"
+                            ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
+                            cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} &&
+                            ${GIT_CHECKOUT} ${params.project} && 
+                            ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} action=${params.action} role=${params.role}'"
                             """
                         }
                     // }
