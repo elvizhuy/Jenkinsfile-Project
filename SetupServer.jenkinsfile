@@ -59,17 +59,17 @@ pipeline {
                     def extraVars = [
                         "project=${params.project}",
                         "role=${params.role}",
-                        "hostname=${params.hostname}",
-                        "reboot=${params.reboot ? 'y' : 'n'}",
-                        "installDocker=${params.installDocker ? 'y' : 'n'}",
-                        "addSSHKey=${params.addSSHKey ? 'y' : 'n'}",
-                        "addAliases=${params.addAliases ? 'y' : 'n'}",
-                        "createUser=${params.createUser ? 'y' : 'n'}"
+                        "HOSTNAME=${params.hostname}",
+                        "REBOOT=${params.reboot ? 'y' : 'n'}",
+                        "INSTALL_DOCKER=${params.installDocker ? 'y' : 'n'}",
+                        "ADD_SSH_KEY=${params.addSSHKey ? 'y' : 'n'}",
+                        "ADD_ALIASES=${params.addAliases ? 'y' : 'n'}",
+                        "CREATE_USER=${params.createUser ? 'y' : 'n'}"
                     ].join(' ')
                     // def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
 
                     if (params.createUser) {
-                        extraVars += " username=${params.username} password=${params.password}"
+                        extraVars += " USERNAME=${params.username} PASSWORD=${params.password}"
                     }
 
                     echo "Running playbook for role: ${params.role}, project: ${params.project}"
