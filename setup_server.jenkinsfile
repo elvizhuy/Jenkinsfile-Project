@@ -69,7 +69,9 @@ pipeline {
                     // def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
 
                     if (params.createUser) {
-                        extraVars += " USERNAME=${params.username} PASSWORD=${params.password}"
+                         withCredentials([string(credentialsId: 'ansible-server-password', variable: 'PASSWORD')]) {
+                            extraVars += " username=${params.username} password=${PASSWORD}"
+                        }
                     }
 
                     echo "Running playbook for role: ${params.role}, project: ${params.project}"
