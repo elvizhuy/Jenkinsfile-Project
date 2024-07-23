@@ -68,7 +68,7 @@ pipeline {
                     ].join(' ')
                     // def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
 
-                    if (params.createUser == 'y') {
+                    if (params.createUser) {
                         extraVars += " username=${params.username} password=${params.password}"
                     }
 
