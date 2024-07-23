@@ -20,6 +20,7 @@ pipeline {
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
         booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
         booleanParam(description: 'Do you want to add aliases?', name: 'addAliases', defaultValue: false)
+        booleanParam(description: 'Do you want to create user?', name: 'createUser', defaultValue: true)
     }
 
     stages {
@@ -50,7 +51,7 @@ pipeline {
                     
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
-                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} && ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} role=${params.role} hostname=${params.hostname} username=${params.username} password=${params.password} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases}'"
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} && ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} role=${params.role} NEW_HOSTNAME=${params.hostname} USERNAME=${params.username} PASSWORD=${params.password} REBOOT=${params.reboot} INSTALL_DOCKER=${params.installDocker} ADD_SSH_KEY=${params.addSSHKey} ADD_ALIASES=${params.addAliases} CREATE_USER=${params.createUser}'"
                         """
                     }
                 }
