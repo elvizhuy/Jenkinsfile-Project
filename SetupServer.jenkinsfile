@@ -23,7 +23,7 @@ pipeline {
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
         booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
         booleanParam(description: 'Do you want to add aliases?', name: 'addAliases', defaultValue: false)
-        booleanParam(description: 'Do you want to create user?', name: 'createUser', defaultValue: true)
+        booleanParam(description: 'Do you want to create user?', name: 'createUser', defaultValue: false)
     }
 
     stages {
@@ -56,12 +56,16 @@ pipeline {
                 script {
                     def inventoryFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
                     def playbookFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
+                    def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
+
+                    if (params.createUser) {
+                        extraVars += " username=${params.username} password=${params.password}"
+                    }
 
                     echo "Running playbook for role: ${params.role}, project: ${params.project}"
-                    
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
-                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} && ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} role=${params.role} NEW_HOSTNAME=${params.hostname} USERNAME=${params.username} PASSWORD=${params.password} REBOOT=${params.reboot} INSTALL_DOCKER=${params.installDocker} ADD_SSH_KEY=${params.addSSHKey} ADD_ALIASES=${params.addAliases} CREATE_USER=${params.createUser}'"
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} --extra-vars '${extraVars}'"
                         """
                     }
                 }
