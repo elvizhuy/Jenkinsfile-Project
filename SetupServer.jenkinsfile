@@ -56,9 +56,19 @@ pipeline {
                 script {
                     def inventoryFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
                     def playbookFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
-                    def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
+                    def extraVars = [
+                        "project=${params.project}",
+                        "role=${params.role}",
+                        "hostname=${params.hostname}",
+                        "reboot=${params.reboot ? 'y' : 'n'}",
+                        "installDocker=${params.installDocker ? 'y' : 'n'}",
+                        "addSSHKey=${params.addSSHKey ? 'y' : 'n'}",
+                        "addAliases=${params.addAliases ? 'y' : 'n'}",
+                        "createUser=${params.createUser ? 'y' : 'n'}"
+                    ].join(' ')
+                    // def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
 
-                    if (params.createUser) {
+                    if (params.createUser == 'y') {
                         extraVars += " username=${params.username} password=${params.password}"
                     }
 
