@@ -8,6 +8,9 @@ pipeline {
         PLAYBOOK_REPO = 'https://github.com/${GIT_USER}/${GIT_DIR}.git'
         ANSIBLE_SERVER = 'isofh@10.0.50.30'
         GIT_CONFIG = 'git config --global --add safe.directory'
+        GIT_PULL = 'git pull'
+        GIT_CHECKOUT = 'git checkout'
+        GIT_BRANCH = 'git branch'
     }
 
     parameters {
@@ -29,11 +32,18 @@ pipeline {
             steps {
                script {
                     echo "------------ CHECKOUT ANSIBLE ROLES ------------"
-                    sh 'pwd'
-                    sh 'ls -la'
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
-                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ${GIT_CONFIG} ${ANSIBLE_DIR} && git pull"
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
+                        cd ${ANSIBLE_DIR} && 
+                        ${GIT_CONFIG} ${ANSIBLE_DIR} && 
+                        ${GIT_PULL} && 
+                        ${GIT_CHECKOUT} ${params.project} && 
+                        ${GIT_PULL} &&
+                        echo '.........Show Git Branch ...........' &&
+                        ${GIT_BRANCH} &&
+                        echo '....................................'
+                        "
                         """
                     }
                     echo "------------- DONE -------------"
