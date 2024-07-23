@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+
+    environment {
+        ANSIBLE_DIR = '/etc/ansible/Ansible_Roles'
+        GIT_USER = 'elvizhuy'
+        GIT_DIR = 'Ansible_Roles'
+        PLAYBOOK_REPO = 'https://github.com/${GIT_USER}/${GIT_DIR}.git'
+        ANSIBLE_SERVER = 'isofh@10.0.50.30'
+        GIT_CONFIG = 'git config --global --add safe.directory'
+    }
+
+    parameters {
+        choice(choices: ["bvp"], description: 'Choose Project', name: 'project')
+        choice(choices: ["setup_server"], description: 'Choose Role', name: 'role')
+        string(description: 'Enter hostname', name: 'hostname')
+        string(description: 'Enter username', name: 'username')
+        password(description: 'Enter password', name: 'password')
+        booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: true)
+        booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
+        booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
+        booleanParam(description: 'Do you want to add aliases?', name: 'addAliases', defaultValue: false)
+    }
+
+    stages {
+        stage('Choose Ansible Roles') {
+            when { expression { params.role != null && params.role != '' }}
+            steps {
+               script {
+                    echo "------------ CHECKOUT ANSIBLE ROLES ------------"
+                    sh 'pwd'
+                    sh 'ls -la'
+                    sshagent(credentials: ['ansible-server-ssh']) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ${GIT_CONFIG} ${ANSIBLE_DIR} && git pull"
+                        """
+                    }
+                    echo "------------- DONE -------------"
+                }
+            }
+        }
+
+        stage('Run Ansible Playbook') {
+            steps {
+                script {
+                    def inventoryFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
+                    def playbookFile = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
+
+                    echo "Running playbook for role: ${params.role}, project: ${params.project}"
+                    
+                    sshagent(credentials: ['ansible-server-ssh']) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR}/${params.role.toLowerCase()} && ansible-playbook -i ${inventoryFile} ${playbookFile} --extra-vars 'project=${params.project} role=${params.role} hostname=${params.hostname} username=${params.username} password=${params.password} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases}'"
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
