@@ -60,7 +60,7 @@ pipeline {
                     echo "Checking if target server ${params.targetServerIP} is in known hosts"
                     def knownHost = sh(
                         script: """
-                        ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
+                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
                         grep -q ${params.targetServerIP} ~/.ssh/known_hosts && echo 'yes' || echo 'no'
                         "
                         """,
