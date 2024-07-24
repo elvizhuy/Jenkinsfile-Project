@@ -74,7 +74,7 @@ pipeline {
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
-                            ssh-keyscan -H ${params.targetServerIP} >> ~/.ssh/known_hosts &&
+                            ssh-keyscan -H ${params.targetServerIP} >> /root/.ssh/known_hosts &&
                             sshpass -p '${params.targetServerPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${params.targetServerIP}
                             "
                             """
