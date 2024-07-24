@@ -75,7 +75,7 @@ pipeline {
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
                             ssh-keyscan -H ${params.targetServerIP} >> ~/.ssh/known_hosts &&
-                            sshpass -p '${params.destPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${params.targetServerIP}
+                            sshpass -p '${params.targetServerPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${params.targetServerIP}
                             "
                             """
                         }
