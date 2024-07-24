@@ -19,7 +19,8 @@ pipeline {
         string(description: 'Enter hostname', name: 'hostname')
         string(description: 'Enter username', name: 'username')
         password(description: 'Enter password', name: 'password')
-        string(description: 'Enter target server IP : user@serverIp', name: 'targetServerIP')
+        string(description: 'Enter target server user', name: 'targetServerUser')
+        string(description: 'Enter target server IP', name: 'targetServerIP')
         password(description: 'Enter target server password', name: 'targetServerPassword')
         booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: true)
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
@@ -74,7 +75,7 @@ pipeline {
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
                             ssh-keyscan -H ${params.targetServerIP} >> ~/.ssh/known_hosts &&
-                            sshpass -p '${params.destPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerIP}
+                            sshpass -p '${params.destPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${params.targetServerIP}
                             "
                             """
                         }
