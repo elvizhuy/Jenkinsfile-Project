@@ -6,7 +6,7 @@ pipeline {
         GIT_USER = 'elvizhuy'
         GIT_DIR = 'Ansible_Roles'
         PLAYBOOK_REPO = 'https://github.com/${GIT_USER}/${GIT_DIR}.git'
-        ANSIBLE_SERVER = 'root@10.0.50.30'
+        ANSIBLE_SERVER = 'isofh@10.0.50.30'
         GIT_CONFIG = 'git config --global --add safe.directory'
         GIT_PULL = 'git pull'
         GIT_CHECKOUT = 'git checkout'
