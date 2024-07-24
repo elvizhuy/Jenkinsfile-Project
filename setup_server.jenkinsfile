@@ -59,7 +59,7 @@ pipeline {
                     def knownHost = sh(
                         script: """
                         ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
-                        if ssh-keygen -F ${params.targetServerIP} > /dev/null; then echo 'yes'; else echo 'no'; fi
+                        grep -q ${params.targetServerIP} ~/.ssh/known_hosts && echo 'yes' || echo 'no'
                         "
                         """,
                         returnStdout: true
