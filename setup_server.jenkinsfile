@@ -26,7 +26,7 @@ pipeline {
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
         booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
         booleanParam(description: 'Do you want to add aliases?', name: 'addAliases', defaultValue: false)
-        booleanParam(description: 'Do you want to create user?', name: 'createUser', defaultValue: false)
+        booleanParam(description: 'Do you want to create user?', name: 'createUser', defaultValue: true)
     }
 
     stages {
