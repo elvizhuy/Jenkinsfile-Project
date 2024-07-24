@@ -79,6 +79,7 @@ pipeline {
                             "
                             """
                         }
+                        echo "------------ SSH key copied to destination server -------------"
                     }
                 }
             }
