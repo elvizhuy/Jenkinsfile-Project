@@ -57,7 +57,7 @@ pipeline {
         stage('Grant Root User SSH Access') {
             steps {
                 script {
-                    echo "************* [ Granting root user SSH access on target server ${params.targetServerIP} ] *************"
+                    echo "************* [ Granting root user SSH access on target server ( ${params.targetServerIP} ) ] *************"
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
                         sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
@@ -74,7 +74,7 @@ pipeline {
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
-                    echo "---------- Checking if target server ${params.targetServerIP} is in known hosts ----------"
+                    echo "---------- Checking if target server ( ${params.targetServerIP} ) is in known hosts ----------"
                     def knownHost = sh(
                         script: """
                         ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
@@ -85,9 +85,9 @@ pipeline {
                     ).trim()
 
                     if (knownHost == 'yes') {
-                        echo "Target server ${params.targetServerIP} is already in known hosts. Skipping SSH key copy."
+                        echo "Target server ( ${params.targetServerIP} ) is ALREADY IN known hosts. Skipping SSH key copy."
                     } else {
-                        echo "Target server ${params.targetServerIP} is not in known hosts. Proceeding with SSH key copy."
+                        echo "Target server ( ${params.targetServerIP} ) is NOT IN known hosts. Proceeding with SSH key copy."
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
