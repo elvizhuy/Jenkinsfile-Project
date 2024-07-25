@@ -61,7 +61,9 @@ pipeline {
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
                         sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
-                        sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+                        // sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+                        sudo sed -i '/^PermitRootLogin no/d' /etc/ssh/sshd_config &&
+                        sudo grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config || sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
                         sudo systemctl restart sshd
                         "
                         """
