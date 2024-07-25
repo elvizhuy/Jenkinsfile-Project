@@ -54,6 +54,21 @@ pipeline {
             }
         }
 
+        stage('Grant Root User SSH Access') {
+            steps {
+                script {
+                    echo "Granting root user SSH access on target server ${params.targetServerIP}"
+                    sshagent(credentials: ['ansible-server-ssh']) {
+                        sh """
+                        sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
+                        echo '${params.targetServerUser} ALL=(ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
+                        "
+                        """
+                    }
+                }
+            }
+        }
+        
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
