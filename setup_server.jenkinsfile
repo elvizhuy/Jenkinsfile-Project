@@ -33,7 +33,7 @@ pipeline {
         stage('Choose Ansible Roles') {
             when { expression { params.role != null && params.role != '' }}
             steps {
-               script {
+                script {
                     echo "------------ CHECKOUT ANSIBLE ROLES ------------"
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
