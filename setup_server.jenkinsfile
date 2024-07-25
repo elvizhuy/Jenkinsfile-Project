@@ -61,14 +61,15 @@ pipeline {
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
                         sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
-                        echo '${params.targetServerUser} ALL=(ALL) NOPASSWD:ALL' | sudo EDITOR='tee -a' visudo
+                        sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+                        sudo systemctl restart sshd
                         "
                         """
                     }
                 }
             }
         }
-        
+
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
