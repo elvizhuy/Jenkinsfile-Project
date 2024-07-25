@@ -57,7 +57,7 @@ pipeline {
         stage('Grant Root User SSH Access') {
             steps {
                 script {
-                    echo "************* [ Granting root user SSH access on target server ( ${params.targetServerIP} ) ] *************"
+                    echo "************************** [ Granting root user SSH access on target server ( ${params.targetServerIP} ) ] **************************"
                     sshagent(credentials: ['ansible-server-ssh']) {
                         sh """
                         sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
@@ -76,7 +76,7 @@ pipeline {
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
-                    echo "---------- Checking if target server ( ${params.targetServerIP} ) is in known hosts ----------"
+                    echo "-------------------- Checking if target server ( ${params.targetServerIP} ) is in known hosts --------------------"
                     def knownHost = sh(
                         script: """
                         ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
@@ -107,7 +107,7 @@ pipeline {
         stage('Run Ansible Playbook') {
             steps {
                 script {
-                    echo "............................ [ BEGIN ANSIBLE CONFIGURATION CD PROCESS ] ............................"
+                    echo "................................... [ BEGIN ANSIBLE CONFIGURATION CD PROCESS ] ..................................."
                     def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
                     def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
                     def extraVars = [
