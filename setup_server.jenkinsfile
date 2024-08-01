@@ -16,10 +16,9 @@ pipeline {
     parameters {
         choice(choices: ["bvp"], description: 'Choose Project', name: 'project')
         choice(choices: ["setup_server"], description: 'Choose Role', name: 'role')
-        string(description: 'Enter hostname', name: 'hostname', defaultValue: 'test')
+        string(description: 'Enter target server info (format: hostname1:ip1,hostname2:ip2)', name: 'targetServerInfo', defaultValue: 'test:10.0.50.33,dev:10.0.50.66')
         string(description: 'Enter username', name: 'username', defaultValue: 'isofh')
         password(description: 'Enter password', name: 'password', defaultValue: '123123')
-        string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33,10.0.50.36')
         string(description: 'Enter target server user', name: 'targetServerUser', defaultValue: 'root')
         password(description: 'Enter target server password', name: 'targetServerPassword', defaultValue: '123123')
         booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
@@ -57,8 +56,9 @@ pipeline {
         stage('Grant Root User SSH Access') {
             steps {
                 script {
-                    def targetServers = params.targetServerIP.split(',')
-                    targetServers.each { ip ->
+                    def targetServers = params.targetServerInfo.split(',')
+                    targetServers.each { server ->
+                        def (hostname, ip) = server.split(':')
                         echo "**************** [ Granting root user SSH access on target server ( ${ip} ) ] ********************"
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
@@ -77,8 +77,9 @@ pipeline {
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
-                    def targetServers = params.targetServerIP.split(',')
-                    targetServers.each { ip ->
+                    def targetServers = params.targetServerInfo.split(',')
+                    targetServers.each { server ->
+                        def (hostname, ip) = server.split(':')
                         echo "---------------------- Checking if target server ( ${ip} ) is in known hosts ----------------------"
                         def knownHost = sh(
                             script: """
@@ -112,30 +113,34 @@ pipeline {
             steps {
                 script {
                     echo "................................... [ BEGIN ANSIBLE CONFIGURATION CD PROCESS ] ..................................."
-                    def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
-                    def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
-                    def extraVars = [
-                        "project=${params.project}",
-                        "role=${params.role}",
-                        "hostname=${params.hostname}",
-                        "reboot=${params.reboot ? 'y' : 'n'}",
-                        "installDocker=${params.installDocker ? 'y' : 'n'}",
-                        "addSSHKey=${params.addSSHKey ? 'y' : 'n'}",
-                        "addAliases=${params.addAliases ? 'y' : 'n'}",
-                        "createUser=${params.createUser ? 'y' : 'n'}"
-                    ].join(' ')
+                    def targetServers = params.targetServerInfo.split(',')
+                    targetServers.each { server ->
+                        def (hostname, ip) = server.split(':')
+                        def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
+                        def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
+                        def extraVars = [
+                            "project=${params.project}",
+                            "role=${params.role}",
+                            "hostname=${hostname}",
+                            "reboot=${params.reboot ? 'y' : 'n'}",
+                            "installDocker=${params.installDocker ? 'y' : 'n'}",
+                            "addSSHKey=${params.addSSHKey ? 'y' : 'n'}",
+                            "addAliases=${params.addAliases ? 'y' : 'n'}",
+                            "createUser=${params.createUser ? 'y' : 'n'}",
+                            "targetServerIP=${ip}"
+                        ].join(' ')
 
-                    if (params.createUser) {
-                        extraVars += " username=${params.username} password=${params.password}"
+                        if (params.createUser) {
+                            extraVars += " username=${params.username} password=${params.password}"
+                        }
+
+                        echo "Running playbook for role: ${params.role}, project: ${params.project}, server: ${ip}"
+                        sshagent(credentials: ['ansible-server-ssh']) {
+                            sh """
+                            ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} --extra-vars '${extraVars}'"
+                            """
+                        }
                     }
-
-                    echo "Running playbook for role: ${params.role}, project: ${params.project}"
-                    sshagent(credentials: ['ansible-server-ssh']) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} --extra-vars '${extraVars}'"
-                        """
-                    }
-
                     echo "............................................ [ END ] ................................................"
                 }
             }
