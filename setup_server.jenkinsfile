@@ -21,7 +21,7 @@ pipeline {
         password(description: 'Enter password', name: 'password', defaultValue: '123123')
         string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33,10.0.50.36')
         string(description: 'Enter target server user', name: 'targetServerUser', defaultValue: 'root')
-        password(description: 'Enter target server password', name: 'targetServerPassword',, defaultValue: '123123')
+        password(description: 'Enter target server password', name: 'targetServerPassword', defaultValue: '123123')
         booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
         booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
@@ -62,7 +62,7 @@ pipeline {
                         echo "**************** [ Granting root user SSH access on target server ( ${ip} ) ] ********************"
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
-                            sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${ip}"
+                            sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${ip} "
                             sudo sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
                             sudo grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config || sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
                             sudo systemctl restart sshd"
@@ -124,10 +124,9 @@ pipeline {
                         "addAliases=${params.addAliases ? 'y' : 'n'}",
                         "createUser=${params.createUser ? 'y' : 'n'}"
                     ].join(' ')
-                    // def extraVars = "project=${params.project} role=${params.role} hostname=${params.hostname} reboot=${params.reboot} installDocker=${params.installDocker} addSSHKey=${params.addSSHKey} addAliases=${params.addAliases} createUser=${params.createUser}"
 
                     if (params.createUser) {
-                        extraVars += " username=${params.username} password=${password}"
+                        extraVars += " username=${params.username} password=${params.password}"
                     }
 
                     echo "Running playbook for role: ${params.role}, project: ${params.project}"
