@@ -16,7 +16,6 @@ pipeline {
     parameters {
         choice(choices: ["bvp"], description: 'Choose Project', name: 'project')
         choice(choices: ["setup_server"], description: 'Choose Role', name: 'role')
-        string(description: 'Enter hostname', name: 'hostname', defaultValue: 'test')
         string(description: 'Enter username', name: 'username', defaultValue: 'isofh')
         password(description: 'Enter password', name: 'password', defaultValue: '123123')
         string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33:test,10.0.50.66:dev')
