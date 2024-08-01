@@ -117,7 +117,7 @@ pipeline {
                     def targetServers = params.targetServerIP.split(',')
                     targetServers.each { server ->
                         def (ip, hostname) = server.split(':')
-                        def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory_tmp_${ip}.yml"
+                        def INVENTORY_FILE = "/etc/ansible/Ansible_Roles/setup_server/inventory/inventory_tmp_${ip}.yml"
                         def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
                         def extraVars = [
                             "project=${params.project}",
@@ -135,23 +135,27 @@ pipeline {
                             extraVars += " username=${params.username} password=${params.password}"
                         }
 
-                        sh """
-                        echo "all:
-                          hosts:
-                            ${ip}:
-                              ansible_user: ${params.targetServerUser}" > ${INVENTORY_FILE}
-                        """
-
-                        echo "Running playbook for role: ${params.role}, project: ${params.project}, server: ${ip}"
                         sshagent(credentials: ['ansible-server-ssh']) {
+                            sh """
+                            ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "echo 'all:
+                              hosts:
+                                ${ip}:
+                                  ansible_user: ${params.targetServerUser}' > ${INVENTORY_FILE}"
+                            """
+
+                            echo "Running playbook for role: ${params.role}, project: ${params.project}, server: ${ip}"
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} --extra-vars '${extraVars}'"
                             """
+
+                            sshagent(credentials: ['ansible-server-ssh']) {
+                                sh """
+                                ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "rm ${INVENTORY_FILE}"
+                                """
+                            }
+
+                            echo "............................................ [ END ] ................................................"
                         }
-
-                        sh "rm ${INVENTORY_FILE}"
-
-                        echo "............................................ [ END ] ................................................"
                     }
                 }
             }
