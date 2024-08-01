@@ -21,7 +21,7 @@ pipeline {
         string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33:test,10.0.50.66:dev')
         string(description: 'Enter target server user', name: 'targetServerUser', defaultValue: 'root')
         password(description: 'Enter target server password', name: 'targetServerPassword', defaultValue: '123123')
-        booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
+        // booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
         booleanParam(description: 'Do you want to install Docker?', name: 'installDocker', defaultValue: false)
         booleanParam(description: 'Do you want to add SSH key?', name: 'addSSHKey', defaultValue: false)
         booleanParam(description: 'Do you want to add aliases?', name: 'addAliases', defaultValue: false)
