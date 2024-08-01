@@ -62,7 +62,7 @@ pipeline {
                         echo "**************** [ Granting root user SSH access on target server ( ${ip} ) ] ********************"
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
-                            sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${ip} "
+                            sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${ip}"
                             sudo sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
                             sudo grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config || sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
                             sudo systemctl restart sshd"
