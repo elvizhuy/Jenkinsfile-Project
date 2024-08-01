@@ -117,7 +117,7 @@ pipeline {
                     def targetServers = params.targetServerIP.split(',')
                     targetServers.each { server ->
                         def (ip, hostname) = server.split(':')
-                        def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory_tmp_${ip}.yml"
+                        def INVENTORY_FILE = "/tmp/inventory_tmp_${ip}.yml"
                         def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
                         def extraVars = [
                             "project=${params.project}",
