@@ -19,7 +19,7 @@ pipeline {
         string(description: 'Enter hostname', name: 'hostname', defaultValue: 'test')
         string(description: 'Enter username', name: 'username', defaultValue: 'isofh')
         password(description: 'Enter password', name: 'password', defaultValue: '123123')
-        string(description: 'Enter target server IP : serverIp', name: 'targetServerIP', defaultValue: '10.0.50.33')
+        string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33,10.0.50.36')
         string(description: 'Enter target server user', name: 'targetServerUser', defaultValue: 'root')
         password(description: 'Enter target server password', name: 'targetServerPassword',, defaultValue: '123123')
         booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
@@ -57,18 +57,19 @@ pipeline {
         stage('Grant Root User SSH Access') {
             steps {
                 script {
-                    echo "************************** [ Granting root user SSH access on target server ( ${params.targetServerIP} ) ] **************************"
-                    sshagent(credentials: ['ansible-server-ssh']) {
-                        sh """
-                        sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${params.targetServerIP} "
-                        // sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
-                        sudo sed -i '/^PermitRootLogin no/d' /etc/ssh/sshd_config &&
-                        sudo grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config || sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
-                        sudo systemctl restart sshd
-                        "
-                        """
+                    def targetServers = params.targetServerIP.split(',')
+                    targetServers.each { ip ->
+                        echo "**************** [ Granting root user SSH access on target server ( ${ip} ) ] ********************"
+                        sshagent(credentials: ['ansible-server-ssh']) {
+                            sh """
+                            sshpass -p '${params.targetServerPassword}' ssh -o StrictHostKeyChecking=no ${params.targetServerUser}@${ip} "
+                            sudo sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+                            sudo grep -q '^PermitRootLogin yes' /etc/ssh/sshd_config || sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+                            sudo systemctl restart sshd"
+                            """
+                        }
+                        echo "********************************* [ DONE ] ****************************************"
                     }
-                    echo "*********************************************** [ DONE ] ***********************************************"
                 }
             }
         }
@@ -76,29 +77,32 @@ pipeline {
         stage('Check if Target Server is in Known Hosts') {
             steps {
                 script {
-                    echo "-------------------- Checking if target server ( ${params.targetServerIP} ) is in known hosts --------------------"
-                    def knownHost = sh(
-                        script: """
-                        ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
-                        grep -q ${params.targetServerIP} ~/.ssh/known_hosts && echo 'yes' || echo 'no'
-                        "
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    if (knownHost == 'yes') {
-                        echo "Target server ( ${params.targetServerIP} ) is ALREADY IN known hosts. Skipping SSH key copy."
-                    } else {
-                        echo "Target server ( ${params.targetServerIP} ) is NOT IN known hosts. Proceeding with SSH key copy."
-                        sshagent(credentials: ['ansible-server-ssh']) {
-                            sh """
+                    def targetServers = params.targetServerIP.split(',')
+                    targetServers.each { ip ->
+                        echo "---------------------- Checking if target server ( ${ip} ) is in known hosts ----------------------"
+                        def knownHost = sh(
+                            script: """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
-                            ssh-keyscan -H ${params.targetServerIP} >> /root/.ssh/known_hosts &&
-                            sshpass -p '${params.targetServerPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${params.targetServerIP}
+                            grep -q ${ip} ~/.ssh/known_hosts && echo 'yes' || echo 'no'
                             "
-                            """
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        if (knownHost == 'yes') {
+                            echo "Target server ${ip} is ALREADY in known hosts. Skipping SSH key copy."
+                        } else {
+                            echo "Target server ${ip} is NOT in known hosts. Proceeding with SSH key copy."
+                            sshagent(credentials: ['ansible-server-ssh']) {
+                                sh """
+                                ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "
+                                ssh-keyscan -H ${ip} >> /root/.ssh/known_hosts &&
+                                sshpass -p '${params.targetServerPassword}' ssh-copy-id -i ~/.ssh/id_rsa.pub ${params.targetServerUser}@${ip}
+                                "
+                                """
+                            }
+                            echo "--------------- SSH key copied to destination server ---------------"
                         }
-                        echo "----------------------- SSH key copied to destination server -----------------------"
                     }
                 }
             }
