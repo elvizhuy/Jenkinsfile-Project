@@ -19,7 +19,7 @@ pipeline {
         string(description: 'Enter hostname', name: 'hostname', defaultValue: 'test')
         string(description: 'Enter username', name: 'username', defaultValue: 'isofh')
         password(description: 'Enter password', name: 'password', defaultValue: '123123')
-        string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33:hostname1,10.0.50.36:hostname2')
+        string(description: 'Enter target server IP (comma-separated if multiple)', name: 'targetServerIP', defaultValue: '10.0.50.33:test,10.0.50.66:dev')
         string(description: 'Enter target server user', name: 'targetServerUser', defaultValue: 'root')
         password(description: 'Enter target server password', name: 'targetServerPassword', defaultValue: '123123')
         booleanParam(description: 'Do you want to reboot?', name: 'reboot', defaultValue: false)
@@ -117,7 +117,7 @@ pipeline {
                     def targetServers = params.targetServerIP.split(',')
                     targetServers.each { server ->
                         def (ip, hostname) = server.split(':')
-                        def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory.yml"
+                        def INVENTORY_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/inventory/inventory_tmp_${ip}.yml"
                         def PLAYBOOK_FILE = "${ANSIBLE_DIR}/${params.role.toLowerCase()}/${params.role.toLowerCase()}-playbook.yml"
                         def extraVars = [
                             "project=${params.project}",
@@ -135,14 +135,24 @@ pipeline {
                             extraVars += " username=${params.username} password=${params.password}"
                         }
 
+                        sh """
+                        echo "all:
+                          hosts:
+                            ${ip}:
+                              ansible_user: ${params.targetServerUser}" > ${INVENTORY_FILE}
+                        """
+
                         echo "Running playbook for role: ${params.role}, project: ${params.project}, server: ${ip}"
                         sshagent(credentials: ['ansible-server-ssh']) {
                             sh """
                             ssh -o StrictHostKeyChecking=no ${ANSIBLE_SERVER} "cd ${ANSIBLE_DIR} && ansible-playbook -i ${INVENTORY_FILE} ${PLAYBOOK_FILE} --extra-vars '${extraVars}'"
                             """
                         }
+
+                        sh "rm ${INVENTORY_FILE}"
+
+                        echo "............................................ [ END ] ................................................"
                     }
-                    echo "............................................ [ END ] ................................................"
                 }
             }
         }
